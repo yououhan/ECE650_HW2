@@ -2,10 +2,14 @@
 #include <unistd.h>
 void initListHead_lock() {
   if (head == NULL) {
-    head= sbrk(sizeof(Node));
-    head->next = NULL;
-    head->size = 0;
-    heapTop = head + 1;//exclusive
+    pthread_rwlock_wrlock(&rwlock);
+    if (head == NULL) {
+      head= sbrk(sizeof(Node));
+      head->next = NULL;
+      head->size = 0;
+      heapTop = head + 1;//exclusive
+    }
+    pthread_rwlock_unlock(&rwlock);
   }
 }
 
@@ -48,6 +52,7 @@ Node * allocateNewSpace_lock(Node * prev, size_t size) {
 //Best Fit malloc/free
 void *ts_malloc_lock(size_t size) {
   initListHead_lock();
+  pthread_rwlock_rdlock(&rwlock);
   Node * prev = head;
   Node * curr = head->next;
   Node * minSizePrev = NULL;
@@ -67,24 +72,33 @@ void *ts_malloc_lock(size_t size) {
     prev = curr;
     curr = curr->next;
   }
+  pthread_rwlock_unlock(&rwlock);
+  pthread_rwlock_wrlock(&rwlock);
   if (newAllocatedNode == NULL) {//if the free list has no data segment that satisfies the needs
+    if (prev == NULL) return ts_malloc_lock(size);
+    while (prev->next != NULL) {prev = prev->next;}
     newAllocatedNode = allocateNewSpace_lock(prev, size);
+  } else if (newAllocatedNode->size < size || minSizePrev->next != newAllocatedNode) {
+    pthread_rwlock_unlock(&rwlock);
+    return ts_malloc_lock(size);
+  } else if (newAllocatedNode->size > size + sizeof(Node)) {
+    newAllocatedNode->size -= size + sizeof(Node);
+    newAllocatedNode = (Node *)((size_t)newAllocatedNode + newAllocatedNode->size + sizeof(Node));
+    newAllocatedNode->size = size;
   } else {
-    if (minSize > size + sizeof(Node)) {
-      newAllocatedNode->size -= size + sizeof(Node);
-      newAllocatedNode = (Node *)((size_t)newAllocatedNode + newAllocatedNode->size + sizeof(Node));
-      newAllocatedNode->size = size;
-    } else {
-      minSizePrev->next = newAllocatedNode->next;
-    }
+    minSizePrev->next = newAllocatedNode->next;
   }
+  newAllocatedNode->next = NULL;
+  pthread_rwlock_unlock(&rwlock);
   return (void *) ((size_t)newAllocatedNode + sizeof(Node));  
 }
 
 void ts_free_lock(void *ptr) {
   if (ptr != NULL) {
     Node * newFreeNode = (Node *)((size_t)ptr - sizeof(Node));
+    pthread_rwlock_wrlock(&rwlock);
     addToFreedList_lock(NULL, newFreeNode);
+    pthread_rwlock_unlock(&rwlock);
   }
 }
 

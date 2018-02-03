@@ -23,6 +23,7 @@ unsigned long get_data_segment_free_space_size(); //in bytes
 //global variable to store the freed memory list
 Node * head = NULL;//free list
 void * heapTop = NULL;
+pthread_rwlock_t  rwlock = PTHREAD_RWLOCK_INITIALIZER;
 __thread Node * TLS_head = NULL;//free list
 pthread_mutex_t sbrk_lock;
 #endif
