@@ -9,7 +9,7 @@ libmymalloc.so: my_malloc.o
 	$(CC) $(CFLAGS) -shared -o $@ $< -g
 
 %.o: %.c my_malloc.h
-	$(CC) $(CFLAGS) -c -o $@ $< -g
+	$(CC) $(CFLAGS) -c -lpthread -o $@ $< -g
 
 clean:
 	rm -f *~ *.o *.so

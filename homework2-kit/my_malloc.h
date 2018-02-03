@@ -3,29 +3,26 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include<pthread.h>
+
 struct Node_t {
-  void * start_address;
-  void * end_address;
-  //  size_t size;
   struct Node_t * next;
-  struct Node_t * prev;
-  struct Node_t * next_block;  
+  //  struct Node_t * prev;
+  //  struct Node_t * next_block;
+  size_t size;
 };
 typedef struct Node_t Node;
-//First Fit malloc/free
-void *ff_malloc(size_t size);
-void ff_free(void *ptr);
-//Best Fit malloc/free
-void *bf_malloc(size_t size);
-void bf_free(void *ptr);
+//Thread Safe malloc/free: locking version
+void *ts_malloc_lock(size_t size);
+void ts_free_lock(void *ptr);
+//Thread Safe malloc/free: non-locking version
+void *ts_malloc_nolock(size_t size);
+void ts_free_nolock(void *ptr);
 unsigned long get_data_segment_size(); //in bytes
 unsigned long get_data_segment_free_space_size(); //in bytes 
-void addToLinkedList(Node * prev, Node * toBeAdded);
-void deleteFromLinkedList(Node * toBeDeleted);
-void initNode(Node * node, Node * prev, size_t size);
-void initListHead();
-Node * initNewAllocatedNode(Node * prev, size_t size);
 //global variable to store the freed memory list
-Node * allocatedListHead = NULL;
+Node * head = NULL;//free list
 void * heapTop = NULL;
+__thread Node * TLS_head = NULL;//free list
+pthread_mutex_t sbrk_lock;
 #endif
