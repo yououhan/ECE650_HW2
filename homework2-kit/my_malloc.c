@@ -106,10 +106,9 @@ void initListHead_nolock() {
   if (TLS_head == NULL) {
     pthread_mutex_lock(&sbrk_lock);
     TLS_head= sbrk(sizeof(Node));
+    pthread_mutex_unlock(&sbrk_lock);
     TLS_head->next = NULL;
     TLS_head->size = 0;
-    heapTop = TLS_head + 1;//exclusive
-    pthread_mutex_unlock(&sbrk_lock);
   }
 }
   
@@ -141,16 +140,14 @@ void addToFreedList_nolock(Node * prev, Node * toBeAdded) {
 }
 
 Node * allocateNewSpace_nolock(Node * prev, size_t size) {
-  Node * newAllocatedNode = NULL;
   size_t increment = size + 2 * sizeof(Node);
   pthread_mutex_lock(&sbrk_lock);
-  Node * newFreeNode = heapTop;
-  heapTop = (void *)((size_t)sbrk(increment) + increment);
-  newAllocatedNode = (Node *)((size_t)heapTop - size - sizeof(Node));
+  Node * newFreeNode = sbrk(0);//find the top of heap 
+  Node * newAllocatedNode = (void *)((size_t)sbrk(increment) + sizeof(Node));
   pthread_mutex_unlock(&sbrk_lock);
   newFreeNode->size = (size_t)newAllocatedNode - (size_t)newFreeNode - sizeof(Node);
-  addToFreedList_nolock(prev, newFreeNode);
   newAllocatedNode->size = size;
+  addToFreedList_nolock(prev, newFreeNode);
   return newAllocatedNode;
 }
 
@@ -194,18 +191,4 @@ void ts_free_nolock(void *ptr) {
     Node * newFreeNode = (Node *)((size_t)ptr - sizeof(Node));
     addToFreedList_nolock(NULL, newFreeNode);
   }
-}
-
-unsigned long get_data_segment_size() {
-  return (size_t)heapTop - (size_t)head;
-}
-
-unsigned long get_data_segment_free_space_size() {
-  Node * curr = head;
-  unsigned long dataSize = 0;
-  while (curr != NULL) {
-    dataSize += curr->size;
-    curr = curr->next;
-  }
-  return dataSize;
 }
