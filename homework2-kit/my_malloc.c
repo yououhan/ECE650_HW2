@@ -39,12 +39,11 @@ void addToFreedList_lock(Node * prev, Node * toBeAdded) {
 
 Node * allocateNewSpace_lock(Node * prev, size_t size) {
   Node * newAllocatedNode = NULL;
-  size_t increment = size + 2 * sizeof(Node);
-  Node * newFreeNode = heapTop;
-  heapTop = (void *)((size_t)sbrk(increment) + increment);
-  newAllocatedNode = (Node *)((size_t)heapTop - size - sizeof(Node));
-  newFreeNode->size = (size_t)newAllocatedNode - (size_t)newFreeNode - sizeof(Node);
-  addToFreedList_lock(prev, newFreeNode);
+  size_t increment = size + sizeof(Node);
+  //  Node * newFreeNode = heapTop;
+  newAllocatedNode = (Node *)sbrk(increment);
+  //  newFreeNode->size = increment;
+  //  addToFreedList_lock(prev, newFreeNode);
   newAllocatedNode->size = size;
   return newAllocatedNode;
 }
@@ -52,16 +51,14 @@ Node * allocateNewSpace_lock(Node * prev, size_t size) {
 //Best Fit malloc/free
 void *ts_malloc_lock(size_t size) {
   initListHead_lock();
-  pthread_rwlock_rdlock(&rwlock);
-  Node * prev = head;
-  Node * curr = head->next;
   Node * minSizePrev = NULL;
   Node * newAllocatedNode = NULL;
   size_t minSize = SIZE_MAX;
+  pthread_rwlock_rdlock(&rwlock);
+  Node * prev = head;
+  Node * curr = head->next;
   while (curr != NULL) {
     if (curr->size >= size && curr->size < minSize) {
-      //      curr->size -= size + sizeof(Node);
-      //      newAllocatedNode = (Node *)((size_t)curr + curr->size + sizeof(Node));
       newAllocatedNode = curr;
       minSizePrev = prev;
       minSize = curr->size;
@@ -75,8 +72,8 @@ void *ts_malloc_lock(size_t size) {
   pthread_rwlock_unlock(&rwlock);
   pthread_rwlock_wrlock(&rwlock);
   if (newAllocatedNode == NULL) {//if the free list has no data segment that satisfies the needs
-    if (prev == NULL) return ts_malloc_lock(size);
-    while (prev->next != NULL) {prev = prev->next;}
+    //if (prev == NULL) return ts_malloc_lock(size);
+    //    while (prev->next != NULL) {prev = prev->next;}
     newAllocatedNode = allocateNewSpace_lock(prev, size);
   } else if (newAllocatedNode->size < size || minSizePrev->next != newAllocatedNode) {
     pthread_rwlock_unlock(&rwlock);
@@ -113,9 +110,7 @@ void initListHead_nolock() {
 }
   
 void addToFreedList_nolock(Node * prev, Node * toBeAdded) {
-  if (TLS_head == NULL) {
-    initListHead_nolock();
-  }
+  initListHead_nolock();
   if (prev == NULL) {
     prev = TLS_head;
     Node * curr = TLS_head->next;
@@ -140,14 +135,14 @@ void addToFreedList_nolock(Node * prev, Node * toBeAdded) {
 }
 
 Node * allocateNewSpace_nolock(Node * prev, size_t size) {
-  size_t increment = size + 2 * sizeof(Node);
+  size_t increment = size + sizeof(Node);
   pthread_mutex_lock(&sbrk_lock);
-  Node * newFreeNode = sbrk(0);//find the top of heap 
+  //  Node * newFreeNode = sbrk(0);//find the top of heap 
   Node * newAllocatedNode = (void *)((size_t)sbrk(increment) + sizeof(Node));
   pthread_mutex_unlock(&sbrk_lock);
-  newFreeNode->size = (size_t)newAllocatedNode - (size_t)newFreeNode - sizeof(Node);
+  //newFreeNode->size = (size_t)newAllocatedNode - (size_t)newFreeNode - sizeof(Node);
   newAllocatedNode->size = size;
-  addToFreedList_nolock(prev, newFreeNode);
+  //addToFreedList_nolock(prev, newFreeNode);
   return newAllocatedNode;
 }
 
