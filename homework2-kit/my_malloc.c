@@ -137,8 +137,12 @@ void addToFreedList_nolock(Node * prev, Node * toBeAdded) {
 Node * allocateNewSpace_nolock(Node * prev, size_t size) {
   size_t increment = size + sizeof(Node);
   pthread_mutex_lock(&sbrk_lock);
-  //  Node * newFreeNode = sbrk(0);//find the top of heap 
-  Node * newAllocatedNode = (void *)((size_t)sbrk(increment) + sizeof(Node));
+  
+  Node * newAllocatedNode = sbrk(0);
+  if (sbrk(increment) == (void *)-1) {
+    printf("sbrk failed\n");
+    exit(EXIT_FAILURE);
+  }
   pthread_mutex_unlock(&sbrk_lock);
   //newFreeNode->size = (size_t)newAllocatedNode - (size_t)newFreeNode - sizeof(Node);
   newAllocatedNode->size = size;
